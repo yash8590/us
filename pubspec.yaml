@@ -1,0 +1,41 @@
+name: us
+description: "A private messaging app for two people."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+  intl: ^0.20.2
+  cached_network_image: ^3.4.1
+  image_picker: ^1.2.3
+  firebase_storage: ^13.4.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Uncomment this section when you add images
+  # assets:
+  #   - assets/images/
+
+  # Uncomment this section when you add custom fonts
+  # fonts:
+  #   - family: Poppins
+  #     fonts:
+  #       - asset: assets/fonts/Poppins-Regular.ttf
