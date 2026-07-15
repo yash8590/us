@@ -34,8 +34,10 @@ jobs:
           flutter pub get > pub_get_output.txt 2>&1 || (cat pub_get_output.txt && exit 1)
 
       - name: Build iOS App (Unsigned)
+        shell: bash
         run: |
-          flutter build ios --release --no-codesign > build_output.txt 2>&1 || (cat build_output.txt && exit 1)
+          set -o pipefail
+          flutter build ios --release --no-codesign 2>&1 | tee build_output.txt
 
       - name: Push Log to Debug Branch
         if: failure()
