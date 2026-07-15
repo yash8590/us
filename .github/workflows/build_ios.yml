@@ -19,11 +19,20 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.5'
           channel: 'stable'
           cache: true
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get > pub_get_output.txt 2>&1 || (cat pub_get_output.txt && exit 1)
+
+      - name: Upload Pub Get Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pub-get-log
+          path: pub_get_output.txt
 
       - name: Build iOS App (Unsigned)
         run: |
