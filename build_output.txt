@@ -1,0 +1,91 @@
+Resolving dependencies...
+Downloading packages...
+  hooks 2.0.2 (2.1.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.19.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  record_use 0.6.0 (1.0.0 available)
+  test_api 0.7.11 (0.7.13 available)
+  vector_math 2.2.0 (2.4.0 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Building com.example.us for device (ios-release)...
+Running pod install...                                            116.9s
+Running Xcode build...                                          
+Xcode build done.                                           18.5s
+Failed to build iOS app
+Swift Compiler Error (Xcode): Expected ',' separator
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:25:41
+
+Swift Compiler Error (Xcode): Unnamed parameters must be written with the empty name '_'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:25:41
+
+Swift Compiler Error (Xcode): Parameter may have at most one of the 'inout', 'borrowing', or 'consuming' specifiers
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:43:64
+
+Swift Compiler Error (Xcode): Expected ',' separator
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:43:64
+
+Swift Compiler Error (Xcode): Expected ',' separator
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:44:15
+
+Swift Compiler Error (Xcode): Unnamed parameters must be written with the empty name '_'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:44:15
+
+Swift Compiler Error (Xcode): Consecutive declarations on a line must be separated by ';'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:44:42
+
+Swift Compiler Error (Xcode): Expected declaration
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:44:43
+
+Swift Compiler Error (Xcode): Parameter may have at most one of the 'inout', 'borrowing', or 'consuming' specifiers
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:51:64
+
+Swift Compiler Error (Xcode): Expected ',' separator
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:51:64
+
+Swift Compiler Error (Xcode): Expected ',' separator
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:51:82
+
+Swift Compiler Error (Xcode): Unnamed parameters must be written with the empty name '_'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:51:82
+
+Swift Compiler Error (Xcode): Consecutive declarations on a line must be separated by ';'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:52:14
+
+Swift Compiler Error (Xcode): Expected declaration
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:52:15
+
+Swift Compiler Error (Xcode): Access level on imports require '-enable-experimental-feature AccessLevelOnImport'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/HeartbeatLogging/HeartbeatsPayload.swift:19:2
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:25:33
+
+Swift Compiler Error (Xcode): Generic parameter 'Value' could not be inferred
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/HeartbeatLogging/HeartbeatStorage.swift:56:6
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:43:56
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:44:7
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:44:35
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:51:56
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:51:74
+
+Swift Compiler Error (Xcode): Cannot find type 'sending' in scope
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:52:7
+
+Swift Compiler Error (Xcode): Access level on imports require '-enable-experimental-feature AccessLevelOnImport'
+/Users/runner/work/us/us/ios/Pods/FirebaseCoreInternal/FirebaseCore/Internal/Sources/Utilities/UnfairLock.swift:15:0
+
+Encountered error while building for device.
