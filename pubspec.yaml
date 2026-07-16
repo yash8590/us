@@ -26,16 +26,16 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
 
-  # Uncomment this section when you add images
-  # assets:
-  #   - assets/images/
+  assets:
+    - assets/icon/
 
-  # Uncomment this section when you add custom fonts
-  # fonts:
-  #   - family: Poppins
-  #     fonts:
-  #       - asset: assets/fonts/Poppins-Regular.ttf
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true
