@@ -2,61 +2,44 @@ name: Build iOS IPA
 
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build iOS Unsigned IPA
-    runs-on: macos-15
-    
-    permissions:
-      contents: write
-      
+    name: Build IPA
+    runs-on: macos-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.5'
           channel: 'stable'
           cache: true
 
-      - name: Disable Swift Package Manager
-        run: flutter config --no-enable-swift-package-manager
+      - name: Get Dependencies
+        run: flutter pub get
 
-      - name: Install dependencies
+      - name: Build iOS project (No codesign)
         run: |
-          flutter pub get > pub_get_output.txt 2>&1 || (cat pub_get_output.txt && exit 1)
-
-      - name: Build iOS App (Unsigned)
-        shell: bash
-        run: |
-          set -o pipefail
-          flutter build ios --release --no-codesign 2>&1 | tee build_output.txt
-
-      - name: Push Log to Debug Branch
-        if: failure()
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git checkout -b debug-log-temp
-          git add pub_get_output.txt build_output.txt || true
-          git commit -m "Add build/pub-get logs"
-          git push origin debug-log-temp:debug-log --force
+          flutter build ios --release --no-codesign
 
       - name: Package IPA
         run: |
-          mkdir -p Payload
+          mkdir Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r Runner.ipa Payload
-          
+
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Runner-Unsigned-IPA
+          name: ios-ipa
           path: Runner.ipa

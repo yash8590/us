@@ -17,19 +17,45 @@ class WAConstants {
     Color(0xFF2B2D42),
   ];
 
-  // Classic WhatsApp Wallpaper Pattern Painting (Fallback)
+  // Custom Premium Wallpaper Gradient & Aura
   static Widget chatWallpaper(BuildContext context, {bool isDark = false}) {
     return Container(
-      color: isDark ? const Color(0xFF0B141A) : const Color(0xFFECE5DD),
-      child: Opacity(
-        opacity: isDark ? 0.05 : 0.08,
-        child: const Center(
-          child: Icon(
-            Icons.chat_bubble_outline,
-            size: 200,
-            color: Colors.grey,
-          ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF0B0F19), const Color(0xFF131824)]
+              : [const Color(0xFFF9FAFB), const Color(0xFFEEF2FF)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF6366F1).withOpacity(isDark ? 0.04 : 0.03),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -50,
+            left: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF43F5E).withOpacity(isDark ? 0.04 : 0.03),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

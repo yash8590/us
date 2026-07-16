@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'passcode_screen.dart';
 import '../../app.dart';
 import '../../services/auth_service.dart';
 import '../../services/chat_service.dart';
@@ -96,6 +98,222 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isEditingAbout = false;
     });
+  }
+
+  Future<void> _pickChatWallpaper() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? WAColors.appBarDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: WAColors.primary),
+                title: const Text("Choose from Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadAndSaveWallpaper();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.restart_alt_rounded, color: Colors.redAccent),
+                title: const Text("Reset to Default", style: TextStyle(color: Colors.redAccent)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  setState(() {
+                    _isLoading = true;
+                  });
+                  await FirebaseFirestore.instance
+                      .collection("users")
+                      .doc(_currentUser!.uid)
+                      .update({"chatWallpaper": FieldValue.delete()});
+                  setState(() {
+                    _isLoading = false;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Wallpaper reset to default")),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _uploadAndSaveWallpaper() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 1200,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _isLoading = true;
+        });
+
+        // Upload to Storage (folder: "wallpapers")
+        final imageUrl = await _chatService.uploadFile(
+          File(pickedFile.path),
+          "wallpapers",
+          "jpg",
+        );
+
+        // Save URL to user doc in Firestore
+        await FirebaseFirestore.instance
+            .collection("users")
+            .doc(_currentUser!.uid)
+            .update({"chatWallpaper": imageUrl});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Chat wallpaper updated successfully!")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Upload failed. Ensure Firebase Storage is enabled. Error: $e")),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateMood(String? currentMood) async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final moods = [
+      "Happy 😊",
+      "Busy 🕒",
+      "Tired 😴",
+      "Thinking of you 💖",
+      "Missing you 🥺",
+      "Excited 🎉",
+      "Relaxed 🍃",
+      "Sad 😢",
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? WAColors.appBarDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  "Set Your Current Mood",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: moods.length,
+                  itemBuilder: (context, index) {
+                    final mood = moods[index];
+                    final isSelected = mood == currentMood;
+
+                    return ListTile(
+                      title: Text(mood),
+                      trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await FirebaseFirestore.instance
+                            .collection("users")
+                            .doc(_currentUser!.uid)
+                            .update({"mood": mood});
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Mood updated to: $mood")),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _managePasscode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasPin = prefs.getString("app_passcode") != null;
+
+    if (!mounted) return;
+
+    if (hasPin) {
+      final theme = Theme.of(context);
+      final isDark = theme.brightness == Brightness.dark;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: isDark ? WAColors.appBarDark : Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.lock_open_rounded, color: Colors.redAccent),
+                  title: const Text("Disable Passcode Lock", style: TextStyle(color: Colors.redAccent)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await prefs.remove("app_passcode");
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Passcode lock disabled")),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PasscodeScreen(
+            isSetupMode: true,
+            onSuccess: () {
+              Navigator.pop(context); // Back to settings
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Passcode set successfully!")),
+              );
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -286,6 +504,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const Divider(indent: 70),
 
+              // Daily Mood Settings
+              ListTile(
+                leading: const Icon(Icons.sentiment_satisfied_alt_rounded, color: WAColors.primary),
+                title: const Text("My Current Mood"),
+                subtitle: Text(
+                  data["mood"] != null ? "Feeling ${data["mood"]}" : "Share how you are feeling today...",
+                  style: const TextStyle(fontSize: 13),
+                ),
+                trailing: const Icon(Icons.edit_rounded, size: 18, color: WAColors.primary),
+                onTap: () => _updateMood(data["mood"] as String?),
+              ),
+
+              const Divider(indent: 70),
+
               // Theme Settings
               ListTile(
                 leading: const Icon(Icons.brightness_6, color: WAColors.primary),
@@ -314,6 +546,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+              ),
+
+              const Divider(indent: 70),
+
+              // Passcode Settings
+              ListTile(
+                leading: const Icon(Icons.lock_outline_rounded, color: WAColors.primary),
+                title: const Text("App Passcode Lock"),
+                subtitle: FutureBuilder<bool>(
+                  future: SharedPreferences.getInstance().then((p) => p.getString("app_passcode") != null),
+                  builder: (context, snapshot) {
+                    final hasPin = snapshot.data ?? false;
+                    return Text(
+                      hasPin ? "Passcode is enabled" : "Secure your chats with a PIN",
+                      style: const TextStyle(fontSize: 13),
+                    );
+                  },
+                ),
+                trailing: Icon(Icons.chevron_right_rounded, color: isDark ? Colors.white70 : Colors.black54),
+                onTap: _managePasscode,
+              ),
+
+              const Divider(indent: 70),
+
+              // Chat Wallpaper Settings
+              ListTile(
+                leading: const Icon(Icons.wallpaper_rounded, color: WAColors.primary),
+                title: const Text("Chat Wallpaper"),
+                subtitle: const Text(
+                  "Choose a custom chat background image",
+                  style: TextStyle(fontSize: 13),
+                ),
+                trailing: Icon(Icons.chevron_right_rounded, color: isDark ? Colors.white70 : Colors.black54),
+                onTap: _pickChatWallpaper,
               ),
 
               const Divider(indent: 70),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +13,7 @@ import '../../utils/colors.dart';
 import '../../utils/constants.dart';
 import '../../widgets/chat_input.dart';
 import '../../widgets/message_bubble.dart';
+import 'doodle_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -32,6 +35,99 @@ class _ChatScreenState extends State<ChatScreen> {
   final User _currentUser = FirebaseAuth.instance.currentUser!;
   
   MessageModel? _replyMessage;
+  int? _selfDestructDuration;
+
+  StreamSubscription<DocumentSnapshot>? _nudgeSubscription;
+  DateTime? _lastNudgeTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForNudges();
+  }
+
+  @override
+  void dispose() {
+    _nudgeSubscription?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _listenForNudges() {
+    final chatId = _getChatId();
+    _nudgeSubscription = FirebaseFirestore.instance
+        .collection("chats")
+        .doc(chatId)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists) {
+        final data = doc.data() ?? {};
+        final nudgeData = data["nudge"] as Map<String, dynamic>?;
+        if (nudgeData != null) {
+          final senderId = nudgeData["senderId"] as String?;
+          final timestamp = nudgeData["timestamp"] as Timestamp?;
+
+          if (senderId != null && senderId != _currentUser.uid && timestamp != null) {
+            final nudgeDateTime = timestamp.toDate();
+            if (_lastNudgeTime == null || nudgeDateTime.isAfter(_lastNudgeTime!)) {
+              _lastNudgeTime = nudgeDateTime;
+              _triggerNudgeEffect();
+            }
+          }
+        }
+      }
+    });
+  }
+
+  void _triggerNudgeEffect() {
+    HapticFeedback.vibrate();
+    Future.delayed(const Duration(milliseconds: 200), () => HapticFeedback.vibrate());
+    Future.delayed(const Duration(milliseconds: 400), () => HapticFeedback.vibrate());
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
+            const SizedBox(width: 10),
+            Text("${widget.receiverName} nudged you! 💖"),
+          ],
+        ),
+        backgroundColor: WAColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _sendNudge() async {
+    final chatId = _getChatId();
+    try {
+      await FirebaseFirestore.instance.collection("chats").doc(chatId).update({
+        "nudge": {
+          "senderId": _currentUser.uid,
+          "timestamp": FieldValue.serverTimestamp(),
+        }
+      });
+
+      HapticFeedback.lightImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Nudge sent! 💖"),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      // If document doesn't have other fields yet, set them
+      await FirebaseFirestore.instance.collection("chats").doc(chatId).set({
+        "nudge": {
+          "senderId": _currentUser.uid,
+          "timestamp": FieldValue.serverTimestamp(),
+        }
+      }, SetOptions(merge: true));
+      HapticFeedback.lightImpact();
+    }
+  }
 
   String _getChatId() {
     List<String> ids = [_currentUser.uid, widget.receiverId];
@@ -50,9 +146,20 @@ class _ChatScreenState extends State<ChatScreen> {
         .where("seen", isEqualTo: false)
         .get();
 
+    if (snapshot.docs.isEmpty) return;
+
     final batch = FirebaseFirestore.instance.batch();
     for (var doc in snapshot.docs) {
-      batch.update(doc.reference, {"seen": true});
+      final data = doc.data();
+      final hasTimer = data["selfDestructDuration"] != null;
+      if (hasTimer) {
+        batch.update(doc.reference, {
+          "seen": true,
+          "readTime": FieldValue.serverTimestamp(),
+        });
+      } else {
+        batch.update(doc.reference, {"seen": true});
+      }
     }
     await batch.commit();
   }
@@ -76,6 +183,7 @@ class _ChatScreenState extends State<ChatScreen> {
       receiverId: widget.receiverId,
       message: text,
       replyTo: replyData,
+      selfDestructDuration: _selfDestructDuration,
     );
 
     setState(() {
@@ -84,25 +192,71 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
-  Future<void> _handlePickImage() async {
+  Future<void> _handlePickMedia() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? WAColors.appBarDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: WAColors.primary),
+                title: const Text("Upload Photo"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndSendMedia(true);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.video_library_rounded, color: WAColors.primary),
+                title: const Text("Upload Video"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndSendMedia(false);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndSendMedia(bool isPhoto) async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 60,
-        maxWidth: 800,
-      );
+      final XFile? pickedFile = isPhoto
+          ? await picker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 60,
+              maxWidth: 800,
+            )
+          : await picker.pickVideo(
+              source: ImageSource.gallery,
+              maxDuration: const Duration(minutes: 5),
+            );
 
       if (pickedFile != null) {
         final File file = File(pickedFile.path);
 
         // Show uploading feedback
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Uploading image...")),
+          SnackBar(content: Text(isPhoto ? "Uploading image..." : "Uploading video...")),
         );
 
-        // Upload and send
-        final imageUrl = await _chatService.uploadImage(file, "chat_images");
+        final String fileExtension = isPhoto ? "jpg" : "mp4";
+        final String folder = isPhoto ? "chat_images" : "chat_videos";
+
+        // Upload
+        final downloadUrl = await _chatService.uploadFile(file, folder, fileExtension);
 
         Map<String, dynamic>? replyData;
         if (_replyMessage != null) {
@@ -116,11 +270,21 @@ class _ChatScreenState extends State<ChatScreen> {
           };
         }
 
-        await _chatService.sendImageMessage(
-          receiverId: widget.receiverId,
-          imageUrl: imageUrl,
-          replyTo: replyData,
-        );
+        if (isPhoto) {
+          await _chatService.sendImageMessage(
+            receiverId: widget.receiverId,
+            imageUrl: downloadUrl,
+            replyTo: replyData,
+            selfDestructDuration: _selfDestructDuration,
+          );
+        } else {
+          await _chatService.sendVideoMessage(
+            receiverId: widget.receiverId,
+            videoUrl: downloadUrl,
+            replyTo: replyData,
+            selfDestructDuration: _selfDestructDuration,
+          );
+        }
 
         setState(() {
           _replyMessage = null;
@@ -129,13 +293,38 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Image send failed. Ensure Firebase Storage is enabled. Error: $e")),
+        SnackBar(content: Text("Media send failed. Ensure Firebase Storage is enabled. Error: $e")),
       );
     }
   }
 
   void _handleTypingState(bool isTyping) {
     _chatService.setTypingState(_getChatId(), _currentUser.uid, isTyping);
+  }
+
+  Future<void> _handleSendVoiceNote(File file, int duration) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Uploading voice note...")),
+      );
+
+      // Upload audio file (folder: chat_voices, extension: m4a)
+      final downloadUrl = await _chatService.uploadFile(file, "chat_voices", "m4a");
+
+      // Send voice message
+      await _chatService.sendVoiceMessage(
+        receiverId: widget.receiverId,
+        voiceUrl: downloadUrl,
+        duration: duration,
+        selfDestructDuration: _selfDestructDuration,
+      );
+
+      _scrollToBottom();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Voice note send failed: $e")),
+      );
+    }
   }
 
   void _scrollToBottom() {
@@ -290,18 +479,50 @@ class _ChatScreenState extends State<ChatScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? WAColors.backgroundDark : WAColors.backgroundLight,
       appBar: AppBar(
+        backgroundColor: isDark ? WAColors.backgroundDark : WAColors.backgroundLight,
+        elevation: 0,
         titleSpacing: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.palette_rounded, color: WAColors.primary, size: 22),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DoodleScreen(chatId: chatId),
+                ),
+              );
+            },
+            tooltip: "Doodle Together",
+          ),
+          IconButton(
+            icon: const Icon(Icons.favorite_rounded, color: Colors.pink, size: 24),
+            onPressed: _sendNudge,
+            tooltip: "Nudge Partner",
+          ),
+          const SizedBox(width: 8),
+        ],
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance.collection("users").doc(widget.receiverId).snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return Text(widget.receiverName);
+              return Text(widget.receiverName, style: TextStyle(color: isDark ? Colors.white : Colors.black87));
             }
 
             final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
             final String status = data["status"] ?? "offline";
             final String photoUrl = data["photoUrl"] ?? "";
+            final String? mood = data["mood"] as String?;
             
             Timestamp? lastActiveTs = data["lastActive"] as Timestamp?;
             String presenceSubtitle = "offline";
@@ -312,6 +533,8 @@ class _ChatScreenState extends State<ChatScreen> {
               presenceSubtitle = "last seen at ${DateFormat('h:mm a').format(lastSeen)}";
             }
 
+            final String moodSuffix = (mood != null && mood.isNotEmpty) ? " • ${mood}" : "";
+
             return StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection("chats").doc(chatId).snapshots(),
               builder: (context, chatSnapshot) {
@@ -321,25 +544,41 @@ class _ChatScreenState extends State<ChatScreen> {
                   final bool isTyping = typingMap[widget.receiverId] == true;
                   if (isTyping) {
                     presenceSubtitle = "typing...";
+                  } else {
+                    presenceSubtitle += moodSuffix;
                   }
+                } else if (moodSuffix.isNotEmpty) {
+                  presenceSubtitle += moodSuffix;
                 }
 
                 return Row(
                   children: [
-                    CircleAvatar(
-                      radius: 19,
-                      backgroundColor: isDark ? const Color(0xFF202C33) : Colors.grey.shade300,
-                      backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                      child: photoUrl.isEmpty
-                          ? Text(
-                              widget.receiverName[0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            )
-                          : null,
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: presenceSubtitle == "typing..." || status == "online" 
+                              ? WAColors.primary.withOpacity(0.4) 
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(1),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                        backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                        child: photoUrl.isEmpty
+                            ? Text(
+                                widget.receiverName[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: WAColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -349,18 +588,22 @@ class _ChatScreenState extends State<ChatScreen> {
                         children: [
                           Text(
                             widget.receiverName,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16, 
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             presenceSubtitle,
                             style: TextStyle(
                               fontSize: 11,
-                              color: presenceSubtitle == "typing..."
-                                  ? (isDark ? WAColors.accentDark : Colors.white)
-                                  : Colors.white70,
-                              fontWeight: presenceSubtitle == "typing..."
-                                  ? FontWeight.bold
+                              color: presenceSubtitle == "typing..." || presenceSubtitle == "online"
+                                  ? WAColors.primary
+                                  : Colors.grey.shade500,
+                              fontWeight: presenceSubtitle == "typing..." || presenceSubtitle == "online"
+                                  ? FontWeight.w600
                                   : FontWeight.normal,
                             ),
                           ),
@@ -376,9 +619,29 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Stack(
         children: [
-          // Custom Classic Wallpaper Backdrop
+          // Custom Dynamic Wallpaper Backdrop
           Positioned.fill(
-            child: WAConstants.chatWallpaper(context, isDark: isDark),
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection("users").doc(_currentUser.uid).snapshots(),
+              builder: (context, userSnapshot) {
+                String? wallpaperUrl;
+                if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                  final data = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+                  wallpaperUrl = data["chatWallpaper"] as String?;
+                }
+
+                if (wallpaperUrl != null && wallpaperUrl.isNotEmpty) {
+                  return CachedNetworkImage(
+                    imageUrl: wallpaperUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => WAConstants.chatWallpaper(context, isDark: isDark),
+                    errorWidget: (context, url, error) => WAConstants.chatWallpaper(context, isDark: isDark),
+                  );
+                }
+
+                return WAConstants.chatWallpaper(context, isDark: isDark);
+              },
+            ),
           ),
 
           // Main Messaging Content Area
@@ -402,6 +665,22 @@ class _ChatScreenState extends State<ChatScreen> {
                     }
 
                     final messages = snapshot.data?.docs ?? [];
+                    
+                    // Auto-delete expired disappearing messages
+                    final now = DateTime.now();
+                    for (var doc in messages) {
+                      final data = doc.data() as Map<String, dynamic>? ?? {};
+                      final selfDestruct = data["selfDestructDuration"] as int?;
+                      final seen = data["seen"] as bool? ?? false;
+                      final readTime = (data["readTime"] as Timestamp?)?.toDate();
+
+                      if (selfDestruct != null && seen && readTime != null) {
+                        final expiry = readTime.add(Duration(seconds: selfDestruct));
+                        if (now.isAfter(expiry)) {
+                          doc.reference.delete();
+                        }
+                      }
+                    }
                     
                     // Mark read real-time
                     _markMessagesAsSeen();
@@ -431,6 +710,15 @@ class _ChatScreenState extends State<ChatScreen> {
                             });
                           },
                           onLongPress: _onMessageLongPress,
+                          onDoubleTap: (doubleTapMsg) {
+                            _chatService.updateReaction(
+                              chatId,
+                              doubleTapMsg.id,
+                              _currentUser.uid,
+                              "❤️",
+                            );
+                            HapticFeedback.mediumImpact();
+                          },
                         );
                       },
                     );
@@ -442,13 +730,20 @@ class _ChatScreenState extends State<ChatScreen> {
               ChatInput(
                 replyMessage: _replyMessage,
                 onSendMessage: _handleSendMessage,
-                onPickImage: _handlePickImage,
+                onPickImage: _handlePickMedia,
                 onCancelReply: () {
                   setState(() {
                     _replyMessage = null;
                   });
                 },
                 onTypingChanged: _handleTypingState,
+                selfDestructDuration: _selfDestructDuration,
+                onSelfDestructDurationChanged: (duration) {
+                  setState(() {
+                    _selfDestructDuration = duration;
+                  });
+                },
+                onSendVoiceNote: _handleSendVoiceNote,
               ),
             ],
           ),

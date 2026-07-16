@@ -12,6 +12,9 @@ class MessageModel {
   final Map<String, String> reactions; // userId -> emoji string
   final Map<String, dynamic>? replyTo; // { 'messageId': ..., 'message': ..., 'senderName': ... }
   final bool deleted;
+  final int? selfDestructDuration;
+  final DateTime? readTime;
+  final int? duration; // Duration of voice note in seconds
 
   MessageModel({
     required this.id,
@@ -25,6 +28,9 @@ class MessageModel {
     required this.reactions,
     this.replyTo,
     this.deleted = false,
+    this.selfDestructDuration,
+    this.readTime,
+    this.duration,
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +47,9 @@ class MessageModel {
       reactions: Map<String, String>.from(data['reactions'] ?? {}),
       replyTo: data['replyTo'],
       deleted: data['deleted'] ?? false,
+      selfDestructDuration: data['selfDestructDuration'],
+      readTime: (data['readTime'] as Timestamp?)?.toDate(),
+      duration: data['duration'],
     );
   }
 
@@ -56,6 +65,9 @@ class MessageModel {
       'reactions': reactions,
       'replyTo': replyTo,
       'deleted': deleted,
+      if (selfDestructDuration != null) 'selfDestructDuration': selfDestructDuration,
+      if (readTime != null) 'readTime': readTime,
+      if (duration != null) 'duration': duration,
     };
   }
 }

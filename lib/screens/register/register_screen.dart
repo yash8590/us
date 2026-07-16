@@ -78,63 +78,95 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? WAColors.backgroundDark : WAColors.backgroundLight,
       appBar: AppBar(
-        title: const Text("Create Account"),
+        backgroundColor: Colors.transparent,
+        foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Form(
               key: _formKey,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 35,
-                    backgroundColor: isDark ? const Color(0xFF1F2C34) : Colors.grey.shade100,
-                    child: const Icon(
-                      Icons.person_add_outlined,
-                      size: 35,
-                      color: WAColors.primary,
+                  // Logo container
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B).withOpacity(0.4) : Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                          blurRadius: 15,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+                        width: 1,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: Image.asset(
+                        'assets/icon/app_icon.png',
+                        height: 60,
+                        width: 60,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
 
                   const Text(
-                    "Join Us Chat",
+                    "Create Account",
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 30,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    "Start secure messaging today.",
+                    "Set up your private space today.",
                     style: TextStyle(
                       color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                      fontSize: 15,
+                      fontSize: 14,
                     ),
                   ),
                   
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 28),
 
-                  // Fields Container Card
+                  // Fields Container Card (Glassmorphic)
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF202C33) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      color: isDark ? const Color(0xFF151B2C).withOpacity(0.6) : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                        width: 1,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                          color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     child: Column(
                       children: [
+                        // Name Field
                         TextFormField(
                           controller: _nameController,
                           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -142,15 +174,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             labelText: "Full Name",
                             labelStyle: TextStyle(
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontSize: 14,
                             ),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0B0F19).withOpacity(0.5) : Colors.grey.shade50,
                             prefixIcon: const Icon(Icons.person_outline, color: WAColors.primary),
-                            enabledBorder: UnderlineInputBorder(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                                color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
                               ),
                             ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: WAColors.primary, width: 2),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: WAColors.primary, width: 2),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
                             ),
                           ),
                           validator: (value) {
@@ -161,6 +207,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 18),
+
+                        // Email Field
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
@@ -169,15 +217,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             labelText: "Email Address",
                             labelStyle: TextStyle(
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontSize: 14,
                             ),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0B0F19).withOpacity(0.5) : Colors.grey.shade50,
                             prefixIcon: const Icon(Icons.email_outlined, color: WAColors.primary),
-                            enabledBorder: UnderlineInputBorder(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                                color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
                               ),
                             ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: WAColors.primary, width: 2),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: WAColors.primary, width: 2),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
                             ),
                           ),
                           validator: (value) {
@@ -191,6 +253,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 18),
+
+                        // Password Field
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _hidePassword,
@@ -199,11 +263,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             labelText: "Password",
                             labelStyle: TextStyle(
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontSize: 14,
                             ),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0B0F19).withOpacity(0.5) : Colors.grey.shade50,
                             prefixIcon: const Icon(Icons.lock_outline, color: WAColors.primary),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _hidePassword ? Icons.visibility_off : Icons.visibility,
+                                _hidePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                                 color: Colors.grey,
                               ),
                               onPressed: () {
@@ -212,13 +279,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 });
                               },
                             ),
-                            enabledBorder: UnderlineInputBorder(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                                color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
                               ),
                             ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: WAColors.primary, width: 2),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: WAColors.primary, width: 2),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
                             ),
                           ),
                           validator: (value) {
@@ -232,6 +310,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 18),
+
+                        // Confirm Password Field
                         TextFormField(
                           controller: _confirmPasswordController,
                           obscureText: _hideConfirmPassword,
@@ -240,11 +320,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             labelText: "Confirm Password",
                             labelStyle: TextStyle(
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontSize: 14,
                             ),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0B0F19).withOpacity(0.5) : Colors.grey.shade50,
                             prefixIcon: const Icon(Icons.lock_outline, color: WAColors.primary),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _hideConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                _hideConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                                 color: Colors.grey,
                               ),
                               onPressed: () {
@@ -253,13 +336,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 });
                               },
                             ),
-                            enabledBorder: UnderlineInputBorder(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                                color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
                               ),
                             ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: WAColors.primary, width: 2),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: WAColors.primary, width: 2),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
                             ),
                           ),
                           validator: (value) {
@@ -281,21 +375,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   // Register Button
                   SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 54,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _register,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: WAColors.primary,
                         foregroundColor: Colors.white,
+                        shadowColor: WAColors.primary.withOpacity(0.3),
+                        elevation: 6,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
                               "Create Account",
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                             ),
                     ),
                   ),

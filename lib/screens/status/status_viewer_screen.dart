@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/status_model.dart';
+import '../../services/chat_service.dart';
 import '../../utils/colors.dart';
 
 class StatusViewerScreen extends StatefulWidget {
@@ -18,6 +19,9 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
   late PageController _pageController;
   late AnimationController _animController;
   int _currentIndex = 0;
+  
+  final TextEditingController _replyController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -27,6 +31,14 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
 
     final firstItem = widget.userStatus.items.first;
     _showStory(item: firstItem);
+
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _animController.stop();
+      } else {
+        _animController.forward();
+      }
+    });
 
     _animController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -61,10 +73,18 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
   void dispose() {
     _pageController.dispose();
     _animController.dispose();
+    _replyController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _onTapDown(TapDownDetails details) {
+    // If the reply bar has focus, let clicks dismiss focus first instead of navigating
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+      return;
+    }
+
     final double screenWidth = MediaQuery.of(context).size.width;
     final double dx = details.globalPosition.dx;
 
@@ -102,13 +122,46 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
   }
 
   void _onLongPress() {
-    // Pause animation
-    _animController.stop();
+    if (!_focusNode.hasFocus) {
+      _animController.stop();
+    }
   }
 
   void _onLongPressUp() {
-    // Resume animation
-    _animController.forward();
+    if (!_focusNode.hasFocus) {
+      _animController.forward();
+    }
+  }
+
+  Future<void> _sendReply() async {
+    final text = _replyController.text.trim();
+    if (text.isEmpty) return;
+
+    _replyController.clear();
+    _focusNode.unfocus();
+
+    try {
+      final chatService = ChatService();
+      await chatService.sendMessage(
+        receiverId: widget.userStatus.uid,
+        message: "💬 Reply to status: $text",
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Reply sent to chat!"), 
+            duration: Duration(milliseconds: 1500),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to send reply: $e")),
+        );
+      }
+    }
   }
 
   @override
@@ -118,6 +171,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
 
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: true,
       body: GestureDetector(
         onTapDown: _onTapDown,
         onLongPress: _onLongPress,
@@ -146,7 +200,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
                       ),
                       if (item.caption != null && item.caption!.isNotEmpty)
                         Positioned(
-                          bottom: 48,
+                          bottom: 120, // push up to clear input box
                           left: 16,
                           right: 16,
                           child: Container(
@@ -173,7 +227,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
                     color: Color(item.backgroundColor),
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(32.0),
+                        padding: const EdgeInsets.fromLTRB(32.0, 32.0, 32.0, 100.0),
                         child: Text(
                           item.text ?? '',
                           textAlign: TextAlign.center,
@@ -268,32 +322,89 @@ class _StatusViewerScreenState extends State<StatusViewerScreen>
                               widget.userStatus.userName,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                            Text(
-                              DateFormat('hh:mm a').format(currentStatus.timestamp),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
+                              Text(
+                                DateFormat('hh:mm a').format(currentStatus.timestamp),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ],
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              // Bottom Quick Reply Box
+              Positioned(
+                bottom: 16,
+                left: 12,
+                right: 12,
+                child: SafeArea(
+                  child: GestureDetector(
+                    onTap: () {}, // Absorb taps so it doesn't trigger story navigation
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.55),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+                            ),
+                            child: Center(
+                              child: TextField(
+                                controller: _replyController,
+                                focusNode: _focusNode,
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: "Send a reply to ${widget.userStatus.userName}...",
+                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: _sendReply,
+                          child: Container(
+                            height: 46,
+                            width: 46,
+                            decoration: const BoxDecoration(
+                              color: WAColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}

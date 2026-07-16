@@ -40,6 +40,7 @@ class ChatService {
     required String receiverId,
     required String message,
     Map<String, dynamic>? replyTo,
+    int? selfDestructDuration,
   }) async {
     final currentUserId = auth.currentUser!.uid;
     final chatId = getChatId(currentUserId, receiverId);
@@ -68,6 +69,7 @@ class ChatService {
       seen: false,
       reactions: {},
       replyTo: replyTo,
+      selfDestructDuration: selfDestructDuration,
     );
 
     await docRef.set(msg.toMap());
@@ -90,6 +92,7 @@ class ChatService {
     required String imageUrl,
     String? caption,
     Map<String, dynamic>? replyTo,
+    int? selfDestructDuration,
   }) async {
     final currentUserId = auth.currentUser!.uid;
     final chatId = getChatId(currentUserId, receiverId);
@@ -117,6 +120,7 @@ class ChatService {
       seen: false,
       reactions: {},
       replyTo: replyTo,
+      selfDestructDuration: selfDestructDuration,
     );
 
     await docRef.set(msg.toMap());
@@ -132,12 +136,118 @@ class ChatService {
     }, SetOptions(merge: true));
   }
 
-  // Upload profile or chat images to Firebase Storage
-  Future<String> uploadImage(File file, String folder) async {
-    final fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
+  // Send video message
+  Future<void> sendVideoMessage({
+    required String receiverId,
+    required String videoUrl,
+    String? caption,
+    Map<String, dynamic>? replyTo,
+    int? selfDestructDuration,
+  }) async {
+    final currentUserId = auth.currentUser!.uid;
+    final chatId = getChatId(currentUserId, receiverId);
+
+    final userDoc = await firestore.collection("users").doc(currentUserId).get();
+    final senderName = userDoc.data()?["name"] ?? "User";
+
+    final recDoc = await firestore.collection("users").doc(receiverId).get();
+    final receiverName = recDoc.data()?["name"] ?? "User";
+
+    final docRef = firestore
+        .collection("chats")
+        .doc(chatId)
+        .collection("messages")
+        .doc();
+
+    final msg = MessageModel(
+      id: docRef.id,
+      senderId: currentUserId,
+      receiverId: receiverId,
+      message: caption ?? "🎥 Video",
+      mediaUrl: videoUrl,
+      messageType: 'video',
+      timestamp: DateTime.now(),
+      seen: false,
+      reactions: {},
+      replyTo: replyTo,
+      selfDestructDuration: selfDestructDuration,
+    );
+
+    await docRef.set(msg.toMap());
+
+    await firestore.collection("chats").doc(chatId).set({
+      "participants": [currentUserId, receiverId],
+      "participantNames": {
+        currentUserId: senderName,
+        receiverId: receiverName,
+      },
+      "lastMessage": "🎥 Video",
+      "lastMessageTime": FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // Send voice note message
+  Future<void> sendVoiceMessage({
+    required String receiverId,
+    required String voiceUrl,
+    required int duration,
+    int? selfDestructDuration,
+    Map<String, dynamic>? replyTo,
+  }) async {
+    final currentUserId = auth.currentUser!.uid;
+    final chatId = getChatId(currentUserId, receiverId);
+
+    final userDoc = await firestore.collection("users").doc(currentUserId).get();
+    final senderName = userDoc.data()?["name"] ?? "User";
+
+    final recDoc = await firestore.collection("users").doc(receiverId).get();
+    final receiverName = recDoc.data()?["name"] ?? "User";
+
+    final docRef = firestore
+        .collection("chats")
+        .doc(chatId)
+        .collection("messages")
+        .doc();
+
+    final msg = MessageModel(
+      id: docRef.id,
+      senderId: currentUserId,
+      receiverId: receiverId,
+      message: "🎤 Voice Message (${duration}s)",
+      mediaUrl: voiceUrl,
+      messageType: 'voice',
+      timestamp: DateTime.now(),
+      seen: false,
+      reactions: {},
+      replyTo: replyTo,
+      selfDestructDuration: selfDestructDuration,
+      duration: duration,
+    );
+
+    await docRef.set(msg.toMap());
+
+    await firestore.collection("chats").doc(chatId).set({
+      "participants": [currentUserId, receiverId],
+      "participantNames": {
+        currentUserId: senderName,
+        receiverId: receiverName,
+      },
+      "lastMessage": "🎤 Voice Message",
+      "lastMessageTime": FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // Upload file (images/videos) to Firebase Storage
+  Future<String> uploadFile(File file, String folder, String extension) async {
+    final fileName = "${DateTime.now().millisecondsSinceEpoch}.$extension";
     final ref = storage.ref().child(folder).child(fileName);
     final uploadTask = await ref.putFile(file);
     return await uploadTask.ref.getDownloadURL();
+  }
+
+  // Upload profile or chat images to Firebase Storage
+  Future<String> uploadImage(File file, String folder) async {
+    return uploadFile(file, folder, "jpg");
   }
 
   // Delete message

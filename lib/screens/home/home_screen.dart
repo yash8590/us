@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../services/notification_service.dart';
 import '../../models/status_model.dart';
 import '../../services/chat_service.dart';
 import '../../utils/colors.dart';
@@ -25,8 +26,15 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _isSearching = false;
   String _searchQuery = "";
-
+  
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Update the push notification device token in Firestore
+    NotificationService().updateToken();
+  }
 
   String _formatMessageTime(Timestamp? ts) {
     if (ts == null) return "";
@@ -43,6 +51,53 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildNavItem(int index, IconData unselectedIcon, IconData selectedIcon, String label, bool isDark) {
+    final isSelected = _currentIndex == index;
+    final activeColor = WAColors.primary;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+          _isSearching = false;
+          _searchQuery = "";
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withOpacity(isDark ? 0.15 : 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? selectedIcon : unselectedIcon,
+              color: isSelected ? activeColor : Colors.grey.shade500,
+              size: 24,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: activeColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -55,37 +110,59 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     final List<String> titles = [
-      "UsChat",
+      "us",
       "Updates",
       "Settings",
     ];
 
     return Scaffold(
+      backgroundColor: isDark ? WAColors.backgroundDark : WAColors.backgroundLight,
       appBar: AppBar(
+        backgroundColor: isDark ? WAColors.backgroundDark : WAColors.backgroundLight,
+        centerTitle: true,
         title: _isSearching && _currentIndex == 0
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
-                decoration: const InputDecoration(
-                  hintText: "Search chats...",
-                  hintStyle: TextStyle(color: Colors.white70),
-                  border: InputBorder.none,
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF151B2C) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+                    width: 1,
+                  ),
                 ),
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val.trim().toLowerCase();
-                  });
-                },
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: "Search chats...",
+                    hintStyle: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade600, fontSize: 15),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val.trim().toLowerCase();
+                    });
+                  },
+                ),
               )
             : Text(
                 titles[_currentIndex],
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: _currentIndex == 0 ? 28 : 22,
+                  letterSpacing: _currentIndex == 0 ? -1.5 : -0.5,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
         actions: [
           if (_currentIndex == 0)
             IconButton(
-              icon: Icon(_isSearching ? Icons.close : Icons.search),
+              icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
               onPressed: () {
                 setState(() {
                   _isSearching = !_isSearching;
@@ -94,60 +171,71 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
             ),
+          const SizedBox(width: 8),
         ],
       ),
       body: tabs[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: isDark ? WAColors.accentDark : WAColors.primary,
-        unselectedItemColor: Colors.grey,
-        backgroundColor: isDark ? WAColors.appBarDark : Colors.white,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-            _isSearching = false;
-            _searchQuery = "";
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_outlined),
-            activeIcon: Icon(Icons.chat),
-            label: "Chats",
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF151B2C).withOpacity(0.9) : Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star_outline),
-            activeIcon: Icon(Icons.star),
-            label: "Updates",
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, "Chats", isDark),
+                _buildNavItem(1, Icons.star_outline_rounded, Icons.star_rounded, "Updates", isDark),
+                _buildNavItem(2, Icons.settings_outlined, Icons.settings_rounded, "Settings", isDark),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: "Settings",
-          ),
-        ],
+        ),
       ),
       floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               backgroundColor: WAColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const SelectContactScreen()),
                 );
               },
-              child: const Icon(Icons.chat, color: Colors.white),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+              label: const Text("New Chat", style: TextStyle(fontWeight: FontWeight.bold)),
             )
           : _currentIndex == 1
-              ? FloatingActionButton(
+              ? FloatingActionButton.extended(
                   backgroundColor: WAColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CreateStatusScreen()),
                     );
                   },
-                  child: const Icon(Icons.camera_alt, color: Colors.white),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 20),
+                  label: const Text("Add Status", style: TextStyle(fontWeight: FontWeight.bold)),
                 )
               : null,
     );
@@ -256,12 +344,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 String otherUserName = "User";
                 String photoUrl = "";
                 bool isOnline = false;
+                String? mood;
 
                 if (userSnapshot.hasData && userSnapshot.data!.exists) {
                   final userData = userSnapshot.data!.data() as Map<String, dynamic>;
                   otherUserName = userData["name"] ?? "User";
                   photoUrl = userData["photoUrl"] ?? "";
                   isOnline = userData["status"] == "online";
+                  mood = userData["mood"] as String?;
                 } else {
                   final participantNames = chatData["participantNames"] as Map<String, dynamic>? ?? {};
                   otherUserName = participantNames[otherUserId] ?? "User";
@@ -283,92 +373,157 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
                     final bool hasUnread = unreadCount > 0;
 
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      leading: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: isDark ? const Color(0xFF202C33) : Colors.grey.shade300,
-                            backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                            child: photoUrl.isEmpty
-                                ? Text(
-                                    otherUserName[0].toUpperCase(),
-                                    style: const TextStyle(
-                                      color: WAColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20,
-                                    ),
-                                  )
-                                : null,
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF151B2C).withOpacity(0.4) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.08 : 0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                          if (isOnline)
-                            Positioned(
-                              bottom: 2,
-                              right: 2,
-                              child: Container(
-                                height: 13,
-                                width: 13,
+                        ],
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        leading: Stack(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(1.5),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: hasUnread ? WAColors.primary.withOpacity(0.5) : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 26,
+                                backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                                backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                                child: photoUrl.isEmpty
+                                    ? Text(
+                                        otherUserName[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          color: WAColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            if (isOnline)
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  height: 13,
+                                  width: 13,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981), // Neon Green
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? const Color(0xFF151B2C) : Colors.white,
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                ),
+                              )
+                          ],
+                        ),
+                        title: Row(
+                          children: [
+                            Text(
+                              otherUserName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            if (mood != null && mood.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                 decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isDark ? WAColors.backgroundDark : Colors.white,
-                                    width: 2,
+                                  color: WAColors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  mood.split(" ").last, // Display only the emoji
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ]
+                          ],
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            lastMessage,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: hasUnread ? (isDark ? Colors.white : Colors.black87) : Colors.grey.shade500,
+                              fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              timeStr,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: hasUnread ? WAColors.primary : Colors.grey.shade400,
+                                fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            if (hasUnread) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: WAColors.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  "$unreadCount",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                            )
-                        ],
-                      ),
-                      title: Text(
-                        otherUserName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      subtitle: Text(
-                        lastMessage,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: hasUnread ? (isDark ? Colors.white : Colors.black) : Colors.grey,
-                          fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                            ]
+                          ],
                         ),
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            timeStr,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: hasUnread ? WAColors.primary : Colors.grey,
-                            ),
-                          ),
-                          if (hasUnread) ...[
-                            const SizedBox(height: 4),
-                            CircleAvatar(
-                              radius: 10,
-                              backgroundColor: WAColors.primary,
-                              child: Text(
-                                "$unreadCount",
-                                style: const TextStyle(color: Colors.white, fontSize: 10),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatScreen(
+                                receiverId: otherUserId,
+                                receiverName: otherUserName,
                               ),
                             ),
-                          ]
-                        ],
+                          );
+                        },
                       ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              receiverId: otherUserId,
-                              receiverName: otherUserName,
-                            ),
-                          ),
-                        );
-                      },
                     );
                   },
                 );
@@ -446,6 +601,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
+            );
+          },
+        ),
+
+        // Countdowns Section
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection("chats")
+              .where("participants", arrayContains: _currentUser.uid)
+              .snapshots(),
+          builder: (context, chatSnapshot) {
+            if (!chatSnapshot.hasData || chatSnapshot.data!.docs.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            final chatId = chatSnapshot.data!.docs.first.id;
+            return Column(
+              children: [
+                _buildCountdownsSection(context, chatId, isDark),
+                const Divider(height: 24),
+              ],
             );
           },
         ),
@@ -534,6 +709,337 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCountdownsSection(BuildContext context, String chatId, bool isDark) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection("chats")
+          .doc(chatId)
+          .collection("countdowns")
+          .orderBy("date")
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Our Countdowns 💖",
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showAddCountdownDialog(context, chatId),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(50, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: const Icon(Icons.add, size: 14, color: WAColors.primary),
+                    label: const Text(
+                      "Add",
+                      style: TextStyle(color: WAColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (docs.isEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF151B2C).withOpacity(0.4) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+                    width: 1,
+                  ),
+                ),
+                child: const Center(
+                  child: Text(
+                    "No active countdowns. Add one to count down special dates together!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 12, height: 1.3),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                height: 120,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final docId = docs[index].id;
+                    final title = data["title"] ?? "";
+                    final date = (data["date"] as Timestamp).toDate();
+                    final iconName = data["icon"] ?? "heart";
+                    
+                    final now = DateTime.now();
+                    final today = DateTime(now.year, now.month, now.day);
+                    final target = DateTime(date.year, date.month, date.day);
+                    final diffDays = target.difference(today).inDays;
+
+                    String daysStr = "";
+                    if (diffDays == 0) {
+                      daysStr = "Today! 🎉";
+                    } else if (diffDays == 1) {
+                      daysStr = "1 day left";
+                    } else if (diffDays < 0) {
+                      daysStr = "${diffDays.abs()} days ago";
+                    } else {
+                      daysStr = "$diffDays days left";
+                    }
+
+                    IconData displayIcon = Icons.favorite_rounded;
+                    switch (iconName) {
+                      case "plane":
+                        displayIcon = Icons.airplanemode_active_rounded;
+                        break;
+                      case "cake":
+                        displayIcon = Icons.cake_rounded;
+                        break;
+                      case "star":
+                        displayIcon = Icons.star_rounded;
+                        break;
+                      case "movie":
+                        displayIcon = Icons.movie_creation_rounded;
+                        break;
+                      case "drink":
+                        displayIcon = Icons.local_bar_rounded;
+                        break;
+                    }
+
+                    return Container(
+                      width: 160,
+                      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                              : [const Color(0xFFFFF1F2), Colors.white],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? WAColors.primary.withOpacity(0.2) : Colors.pink.shade50,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.1 : 0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          )
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: WAColors.primary.withOpacity(0.12),
+                                child: Icon(displayIcon, color: WAColors.primary, size: 16),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    daysStr,
+                                    style: TextStyle(
+                                      color: diffDays >= 0 ? WAColors.accent : Colors.grey,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Positioned(
+                            top: -8,
+                            right: -8,
+                            child: IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 16, color: Colors.grey),
+                              onPressed: () => FirebaseFirestore.instance
+                                  .collection("chats")
+                                  .doc(chatId)
+                                  .collection("countdowns")
+                                  .doc(docId)
+                                  .delete(),
+                            ),
+                          )
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showAddCountdownDialog(BuildContext context, String chatId) async {
+    final titleController = TextEditingController();
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    String selectedIcon = "heart";
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text("Create Countdown", style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      hintText: "Title (e.g. Anniversary, Next Date)",
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Date Picker Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Date:", style: TextStyle(fontWeight: FontWeight.w500)),
+                      TextButton.icon(
+                        icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                        label: Text(DateFormat("MMM d, y").format(selectedDate)),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                            lastDate: DateTime.now().add(const Duration(days: 3650)),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              selectedDate = picked;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Icon Picker Selection
+                  const Text("Icon:", style: TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildIconButton(setDialogState, "heart", Icons.favorite_rounded, selectedIcon, (val) => selectedIcon = val),
+                      _buildIconButton(setDialogState, "plane", Icons.airplanemode_active_rounded, selectedIcon, (val) => selectedIcon = val),
+                      _buildIconButton(setDialogState, "cake", Icons.cake_rounded, selectedIcon, (val) => selectedIcon = val),
+                      _buildIconButton(setDialogState, "star", Icons.star_rounded, selectedIcon, (val) => selectedIcon = val),
+                      _buildIconButton(setDialogState, "movie", Icons.movie_creation_rounded, selectedIcon, (val) => selectedIcon = val),
+                      _buildIconButton(setDialogState, "drink", Icons.local_bar_rounded, selectedIcon, (val) => selectedIcon = val),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: WAColors.primary),
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    if (title.isEmpty) return;
+
+                    await FirebaseFirestore.instance
+                        .collection("chats")
+                        .doc(chatId)
+                        .collection("countdowns")
+                        .add({
+                      "title": title,
+                      "date": Timestamp.fromDate(selectedDate),
+                      "icon": selectedIcon,
+                      "createdBy": _currentUser.uid,
+                    });
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text("Save", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildIconButton(StateSetter setDialogState, String iconName, IconData iconData, String currentSelected, Function(String) onSelect) {
+    final isSelected = iconName == currentSelected;
+    return GestureDetector(
+      onTap: () {
+        setDialogState(() {
+          onSelect(iconName);
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isSelected ? WAColors.primary.withOpacity(0.15) : Colors.transparent,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isSelected ? WAColors.primary : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          iconData,
+          color: isSelected ? WAColors.primary : Colors.grey,
+          size: 18,
+        ),
+      ),
     );
   }
 }
